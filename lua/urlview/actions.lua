@@ -63,6 +63,34 @@ function M.clipboard(raw_url)
   utils.log(string.format("URL %s copied to clipboard", raw_url), vim.log.levels.INFO)
 end
 
+--- Jump to the URL in the current buffer
+---@param raw_url string @unescaped URL
+function M.jump(raw_url)
+  local bufnr = 0 -- current buffer
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+  local prefix = config.default_prefix
+  local url_without_prefix = raw_url
+  if vim.startswith(raw_url, prefix) then
+    url_without_prefix = raw_url:sub(#prefix + 1)
+  end
+
+  for line_idx, line in ipairs(lines) do
+    -- Try matching the exact URL first
+    local start, _ = line:find(raw_url, 1, true)
+    if not start and url_without_prefix ~= raw_url then
+      -- Try matching without the prefix
+      start, _ = line:find(url_without_prefix, 1, true)
+    end
+
+    if start then
+      vim.cmd("normal! m'") -- add to jump list
+      vim.api.nvim_win_set_cursor(0, { line_idx, start - 1 })
+      return
+    end
+  end
+  utils.log(string.format("Could not find URL %s in buffer", raw_url), vim.log.levels.WARN)
+end
+
 return setmetatable(M, {
   -- execute action as command if it is not one of the above module keys
   __index = function(_, k)

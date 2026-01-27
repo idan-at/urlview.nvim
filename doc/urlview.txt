@@ -283,6 +283,10 @@ operating system. If your system is not supported, please raise a GitHub issue
 to have it included as a built-in options. Otherwise, specify a custom action
 ( |urlview.actions-custom|) for your use case.
 
+jump                                                  *urlview.actions-jump*
+
+This action adds the URL position to the jumplist and moves the cursor there.
+
 clipboard                                            *urlview.actions-clipboard*
 
 This action copies selected URLs to the system clipboard (specifically to
