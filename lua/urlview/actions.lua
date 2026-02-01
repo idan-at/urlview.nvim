@@ -2,6 +2,7 @@ local M = {}
 
 local utils = require("urlview.utils")
 local config = require("urlview.config")
+local constants = require("urlview.config.constants")
 
 --- Use command to open the URL
 ---@param cmd string @name of executable to run
@@ -68,27 +69,50 @@ end
 function M.jump(raw_url)
   local bufnr = 0 -- current buffer
   local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-  local prefix = config.default_prefix
+
   local url_without_prefix = raw_url
-  if vim.startswith(raw_url, prefix) then
-    url_without_prefix = raw_url:sub(#prefix + 1)
+  local s, e = raw_url:find(constants.http_pattern)
+  if s == 1 then
+    url_without_prefix = raw_url:sub(e + 1)
   end
+
+  local allowed_chars_pattern = constants.pattern:sub(1, -2)
+  local positions = {}
 
   for line_idx, line in ipairs(lines) do
-    -- Try matching the exact URL first
-    local start, _ = line:find(raw_url, 1, true)
-    if not start and url_without_prefix ~= raw_url then
-      -- Try matching without the prefix
-      start, _ = line:find(url_without_prefix, 1, true)
-    end
+    local start_search = 1
+    while true do
+      local start, finish = line:find(url_without_prefix, start_search, true)
+      if not start then
+        break
+      end
 
-    if start then
-      vim.cmd("normal! m'") -- add to jump list
-      vim.api.nvim_win_set_cursor(0, { line_idx, start - 1 })
-      return
+      local url_start = start
+      while url_start > 1 do
+        local char = line:sub(url_start - 1, url_start - 1)
+        if char:match(allowed_chars_pattern) then
+          url_start = url_start - 1
+        else
+          break
+        end
+      end
+
+      table.insert(positions, { line_idx, url_start - 1 })
+      start_search = finish + 1
     end
   end
-  utils.log(string.format("Could not find URL %s in buffer", raw_url), vim.log.levels.WARN)
+
+  if vim.tbl_isempty(positions) then
+    utils.log(string.format("Could not find URL %s in buffer", raw_url), vim.log.levels.WARN)
+    return
+  end
+
+  vim.cmd("normal! m'")
+  for i = #positions, 2, -1 do
+    vim.api.nvim_win_set_cursor(0, positions[i])
+    vim.cmd("normal! m'")
+  end
+  vim.api.nvim_win_set_cursor(0, positions[1])
 end
 
 return setmetatable(M, {
